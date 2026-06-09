@@ -1,117 +1,173 @@
 # tradingview-mcp-codex
 
-Codex-first TradingView MCP bridge for TradingView Desktop via Chrome DevTools Protocol.
+Connect Codex to your TradingView Desktop chart. Control symbols, timeframes, indicators, and screenshots via AI or CLI.
 
-This project adapts ideas and workflows from `tradesdontlie/tradingview-mcp` for Codex:
+> **Not affiliated with TradingView Inc.** Interacts only with your locally running TradingView Desktop app via Chrome DevTools Protocol.
 
-- same local TradingView Desktop CDP model
-- Codex-friendly MCP setup
-- thin shared core for CLI and MCP tools
-- clearer Codex install and workflow docs
+> **Requires a valid TradingView subscription.** Does not bypass any paywall or access control.
 
-## Status
+> **All processing is local.** No chart data leaves your machine.
 
-Current scaffold ships working base pieces:
-
-- CLI:
-  - `tvx launch`
-  - `tvx status`
-  - `tvx symbol <SYMBOL>`
-  - `tvx timeframe <TF>`
-- MCP tools:
-  - `tvx_launch`
-  - `tvx_health_check`
-  - `tvx_set_symbol`
-  - `tvx_set_timeframe`
-  - `tvx_chart_state`
-
-It does **not** yet expose full upstream feature parity. Use `vendor/tradingview-mcp` as feature reference while growing this Codex-first server.
-
-## Goals
-
-- keep MCP server small and readable
-- share logic across CLI and MCP tools
-- document Codex setup better than Claude-only examples
-- make feature parity work incremental and explicit
+---
 
 ## Prerequisites
 
 - Node.js 18+
-- TradingView Desktop installed
-- valid TradingView subscription for your own local app usage
-- Codex CLI with MCP support
+- TradingView Desktop installed (paid subscription)
+- [Codex CLI](https://github.com/openai/codex) with MCP support
+
+---
 
 ## Install
 
 ```bash
+git clone https://github.com/gagahkharismanuary/tradingview-mcp-codex.git
+cd tradingview-mcp-codex
 npm install
 ```
 
-## Run locally
+---
 
-Start MCP server:
+## Step 1: Launch TradingView with debug port
 
-```bash
-npm start
-```
+TradingView must run with Chrome DevTools Protocol enabled on port 9222.
 
-Use CLI:
-
+**Mac (auto):**
 ```bash
 npm run launch
-npm run health
-node src/cli/index.js symbol BBCA
-node src/cli/index.js timeframe 1
 ```
 
-## Add to Codex
+**Mac (manual):**
+```bash
+/Applications/TradingView.app/Contents/MacOS/TradingView --remote-debugging-port=9222
+```
 
-Register global MCP entry:
+**Windows:**
+```bat
+"%LOCALAPPDATA%\TradingView\TradingView.exe" --remote-debugging-port=9222
+```
+
+**Linux:**
+```bash
+tradingview --remote-debugging-port=9222
+```
+
+Verify connection:
+```bash
+npm run health
+```
+
+Expected:
+```json
+{
+  "success": true,
+  "cdp_connected": true,
+  "chart_symbol": "BTCUSD"
+}
+```
+
+---
+
+## Step 2: Register with Codex
 
 ```bash
-codex mcp add tradingview-codex -- node /Users/you/Projects/tradingview-mcp-codex/src/server.js
+codex mcp add tradingview-codex -- node /path/to/tradingview-mcp-codex/src/server.js
 ```
 
-Check config:
+Replace `/path/to/tradingview-mcp-codex` with where you cloned. To find it:
+```bash
+pwd  # run inside the repo folder
+```
 
+Verify:
 ```bash
 codex mcp list
 codex mcp get tradingview-codex
 ```
 
-Restart Codex session after adding server so tool list refreshes.
+Restart Codex after adding — tools load on session start.
 
-## Quick verification
+---
 
-1. Launch TradingView with CDP:
-   - `npm run launch`
-2. Check CLI connection:
-   - `npm run health`
-3. In fresh Codex session, call MCP tool:
-   - `tvx_health_check`
+## Step 3: Verify in Codex
 
-## Documentation
+Ask Codex to call `tvx_health_check`. Expected:
+```json
+{
+  "success": true,
+  "cdp_connected": true,
+  "chart_symbol": "BTCUSD",
+  "api_available": true
+}
+```
 
-- Codex setup: `docs/CODEX_SETUP.md`
-- Feature mapping from upstream reference: `docs/FEATURE_PARITY.md`
-- Skill port plan: `docs/SKILLS.md`
+---
 
-## Reference source
+## MCP Tools
 
-Primary reference used while shaping this project:
+| Tool | What it does |
+|------|-------------|
+| `tvx_health_check` | Check CDP connection and chart status |
+| `tvx_launch` | Launch TradingView Desktop with debug port |
+| `tvx_chart_state` | Get symbol, timeframe, chart type, and indicator list |
+| `tvx_set_symbol` | Change chart symbol |
+| `tvx_set_timeframe` | Change chart timeframe |
+| `tvx_set_chart_type` | Change chart type (Candles, Line, HeikinAshi, etc.) |
+| `tvx_manage_indicator` | Add or remove an indicator |
+| `tvx_symbol_search` | Search symbols by name or keyword |
+| `tvx_screenshot` | Capture a screenshot of the chart |
 
-- upstream repo: `vendor/tradingview-mcp/README.md`
-- upstream setup: `vendor/tradingview-mcp/SETUP_GUIDE.md`
-- upstream Claude workflows: `vendor/tradingview-mcp/CLAUDE.md`
+---
 
-Upstream project:
+## CLI
 
-- https://github.com/tradesdontlie/tradingview-mcp
+Install `tvx` globally (optional):
+```bash
+npm link
+```
 
-## Design notes
+```bash
+tvx status                                        # health check
+tvx launch                                        # launch TradingView
+tvx state                                         # get chart state
+tvx symbol AAPL                                   # change symbol
+tvx timeframe 15                                  # change timeframe (1, 5, 15, 60, D, W)
+tvx charttype HeikinAshi                          # change chart type
+tvx indicator add "Relative Strength Index"       # add indicator (full name required)
+tvx indicator remove <entity_id>                  # entity_id from tvx state output
+tvx search bitcoin                                # search symbols
+tvx screenshot chart                              # capture chart (full, chart, strategy_tester)
+```
 
-- keep shared TradingView logic in `src/core`
-- keep CLI wrappers thin in `src/cli`
-- keep MCP wrappers thin in `src/tools`
-- prefer explicit, JSON-friendly outputs
-- port upstream features one workflow at time instead of blind copy
+Without `npm link`:
+```bash
+node src/cli/index.js symbol AAPL
+```
+
+---
+
+## Troubleshooting
+
+| Problem | Fix |
+|---------|-----|
+| `cdp_connected: false` | Launch TradingView with `--remote-debugging-port=9222` |
+| `ECONNREFUSED` | TradingView not running or port 9222 blocked |
+| Tools missing in Codex | Restart Codex after `codex mcp add` |
+| `tvx` command not found | Run `npm link` inside the repo folder |
+| Indicator add fails | Use full name: `"Relative Strength Index"` not `"RSI"` |
+
+---
+
+## One-liner Codex install prompt
+
+Paste into Codex and it will handle the rest:
+
+> Clone https://github.com/gagahkharismanuary/tradingview-mcp-codex.git, run npm install, register with `codex mcp add tradingview-codex -- node <path>/src/server.js`, then verify with tvx_health_check.
+
+---
+
+## Credits
+
+Built on top of [tradesdontlie/tradingview-mcp](https://github.com/tradesdontlie/tradingview-mcp) — a TradingView MCP server for Claude Code that connects AI agents to TradingView Desktop via Chrome DevTools Protocol. Core architecture, CDP connection patterns, chart API bindings, and tool designs are derived from that work. This project adapts and extends it for Codex workflows.
+
+Licensed MIT. Copyright (c) 2026 tradesdontlie.
